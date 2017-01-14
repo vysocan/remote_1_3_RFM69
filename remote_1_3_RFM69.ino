@@ -24,8 +24,8 @@
 #include <RFM69.h>
 #include <RFM69_ATC.h>
 #include <avr/eeprom.h> // Global configuration for in chip EEPROM
-#define VERSION 120
-
+#define VERSION     130
+// Radio
 #define NODEID      2
 #define NETWORKID   100
 #define GATEWAYID   1
@@ -33,21 +33,22 @@
 #define KEY         "ABCDABCDABCDABCD" //has to be same 16 characters/bytes on all nodes, not more not less!
 #define ENABLE_ATC  //comment out this line to disable AUTO TRANSMISSION CONTROL
 #define ATC_RSSI    -70
-
-#define REG_LEN    21   // size of one conf. element
-#define REG_REPEAT 10   // repeat sending
-
 #ifdef ENABLE_ATC
   RFM69_ATC radio;
 #else
   RFM69 radio;
 #endif
+// OHS
+#define REG_LEN     21   // size of one conf. element
+#define REG_REPEAT  10   // repeat sending
 
+// Global variables
 int8_t  res;
 uint8_t count, radioLength;
 uint8_t pos;
 uint8_t msg[REG_LEN+1];
 
+// Configuration struct
 struct config_t {
   uint16_t version;
   char     reg[REG_LEN * 2]; // Number of elements on this node
@@ -75,7 +76,7 @@ void send_conf(){
   }
   Serial.println(F(" end"));
 }
-
+// Set defaults on first time
 void setDefault(){
   conf.version = VERSION;   // Change VERSION to take effect
   conf.reg[0]  = 'S';       // Sensor
@@ -160,7 +161,7 @@ void loop() {
   if (count == 2) {
     Serial.println(F("."));
     count = 0;
-    // Temperature readings
+    // Temperature 
     u.fval = (((float)analogRead(A6) * 0.003223)-0.5)*100; 
     msg[0] = 'S'; // Sensor
     msg[1] = 'T'; // Temperature
