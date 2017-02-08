@@ -26,21 +26,21 @@
 #include <avr/eeprom.h> // Global configuration for in chip EEPROM
 #define VERSION     130
 // Radio
-#define NODEID      2
+#define NODEID      4
 #define NETWORKID   100
 #define GATEWAYID   1
 #define FREQUENCY   RF69_868MHZ //Match this with the version of your Moteino! (others: RF69_433MHZ, RF69_868MHZ)
 #define KEY         "ABCDABCDABCDABCD" //has to be same 16 characters/bytes on all nodes, not more not less!
 #define ENABLE_ATC  //comment out this line to disable AUTO TRANSMISSION CONTROL
-#define ATC_RSSI    -70
+#define ATC_RSSI    -75
 #ifdef ENABLE_ATC
   RFM69_ATC radio;
 #else
   RFM69 radio;
 #endif
 // OHS
-#define REG_LEN     21   // size of one conf. element
-#define REG_REPEAT  10   // repeat sending
+#define REG_LEN       21   // size of one conf. element
+#define RADIO_REPEAT  6    // repeat sending
 
 // Global variables
 int8_t  res;
@@ -51,13 +51,13 @@ uint8_t msg[REG_LEN+1];
 // Configuration struct
 struct config_t {
   uint16_t version;
-  char     reg[REG_LEN * 2]; // Number of elements on this node
+  char     reg[REG_LEN * 3]; // Number of elements on this node
 } conf; 
 
 // Float conversion 
 union u_tag {
-    byte  b[4]; 
-    float fval;
+  byte  b[4]; 
+  float fval;
 } u;
 
 // Registration
@@ -71,7 +71,7 @@ void send_conf(){
       msg[1+ii] = conf.reg[pos+ii];
     }
     Serial.print(F("-"));
-    Serial.print(radio.sendWithRetry(GATEWAYID, msg, REG_LEN + 1, REG_REPEAT));
+    Serial.print(radio.sendWithRetry(GATEWAYID, msg, REG_LEN + 1, RADIO_REPEAT));
     pos+=REG_LEN;
   }
   Serial.println(F(" end"));
@@ -91,6 +91,12 @@ void setDefault(){
   conf.reg[24] = B00000000; // Default setting
   conf.reg[25] = B00011110; // Default setting, group=16, disabled
   for (uint8_t ii=0; ii < 17; ii++){ conf.reg[26+ii] = 0;}
+  conf.reg[42] = 'S';       // Sensor
+  conf.reg[43] = 'X';       // TX power level
+  conf.reg[44] = 1;         // Local address
+  conf.reg[45] = B00000000; // Default setting
+  conf.reg[46] = B00011110; // Default setting, group=16, disabled
+  for (uint8_t ii=0; ii < 17; ii++){ conf.reg[47+ii] = 0;}
 }
 
 void checkRadio(){
@@ -167,15 +173,20 @@ void loop() {
     msg[1] = 'T'; // Temperature
     msg[2] = 0;   // local address
     msg[3] = u.b[0]; msg[4] = u.b[1]; msg[5] = u.b[2]; msg[6] = u.b[3];
-    // Voltage 
+    // BATT Voltage 
     u.fval = 0.0064453125 * (float)analogRead(A7); // Voltage divider 2:1
     msg[7] = 'V'; // Voltage
     msg[8] = 0;   // local address
     msg[9] = u.b[0]; msg[10] = u.b[1]; msg[11] = u.b[2]; msg[12] = u.b[3];
+    // TX power level
+    u.fval = ((float)radio._transmitLevel*3.03125)+3.0; //3~100% , as 0% maid me woried it's off
+    msg[13] = 'X'; // TX power level
+    msg[14] = 0;   // local address
+    msg[15] = u.b[0]; msg[16] = u.b[1]; msg[17] = u.b[2]; msg[18] = u.b[3];
     // Send to GW 
-    radio.sendWithRetry(GATEWAYID, msg, 13);
-    // Check for incoming messages
-    for (uint8_t i=0; i < 20; i++){
+    radio.sendWithRetry(GATEWAYID, msg, 19);
+    // Check for queued messages after sleep
+    for (uint8_t i=0; i < RADIO_REPEAT; i++){
       checkRadio();
       delay(10);
     }
